@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<!--
+  ==========================================================================
+  ARES-E Analytics Dashboard — Single-Pane-of-Glass
+  ==========================================================================
+
+  ARES-E: Agentic Resilience & Evaluation System for Essential-Infrastructure
+  Version: 2.2.0 | DaScient, LLC
+  License: MIT
+
+  This dashboard provides a unified operational view across three critical
+  infrastructure modules:
+    • EWIS — Energy, Weather & Interoperability Suite
+    • WOIK — Water Operations Interoperability Kit
+    • PHIAK — Public Health Infrastructure Analytics Kit
+
+  HOSTED ON: GitHub Pages (static site — no server required)
+  DATA SOURCE: Synthetic telemetry engine (js/synthetic-data.js)
+
+  ARCHITECTURE:
+    index.html          ← You are here (layout + structure)
+    css/dashboard.css   ← Visual design system
+    js/synthetic-data.js ← Synthetic telemetry generator
+    js/charts.js         ← Chart.js visualization manager
+    js/alerts.js         ← Rule-based alerting engine
+    js/forecasting.js    ← Trend projection engine
+    js/dashboard.js      ← Main controller (wires everything together)
+
+  EDUCATIONAL NOTE — GitHub Pages & Static Sites:
+    GitHub Pages serves static files directly from a repository branch.
+    This dashboard is 100% client-side: all data generation, charting,
+    alerting, and forecasting run in the browser. No backend server needed.
+    This makes it ideal for demos, prototyping, and educational purposes.
+    Read more: https://docs.github.com/en/pages
+
+  CDN DEPENDENCIES:
+    • Chart.js v4 — Canvas-based charting library
+    • Inter font — Clean, modern sans-serif for UI text
+    • JetBrains Mono — Monospaced font for data values
+  ==========================================================================
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ARES-E Analytics Dashboard — DaScient Critical Infrastructure Monitoring">
+  <meta name="author" content="DaScient, LLC">
+
+  <title>ARES-E | Analytics Dashboard</title>
+
+  <!-- ====================================================================
+       FAVICON — Uses a data URI to avoid an extra HTTP request.
+       EDUCATIONAL: Data URIs embed small assets directly in HTML/CSS,
+       eliminating network round-trips. Good for tiny icons (<2KB).
+       ==================================================================== -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+
+  <!-- ====================================================================
+       FONTS — Google Fonts CDN
+       EDUCATIONAL: The `display=swap` parameter uses CSS `font-display: swap`,
+       which shows fallback text immediately and swaps to the custom font
+       once loaded. This improves perceived performance (no FOUT delay).
+       ==================================================================== -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- ====================================================================
+       CHART.JS — Loaded from CDN for simplicity.
+       EDUCATIONAL: In production, you'd bundle this with a tool like
+       Vite, Webpack, or esbuild to control versioning and reduce load time.
+       For GitHub Pages demos, CDN is perfectly fine.
+       ==================================================================== -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Our stylesheet -->
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+
+<body>
+
+
+  <!-- ====================================================================
+       TOP BAR — Brand, system status, clock
+       ====================================================================
+       The topbar is sticky-positioned so it remains visible during scroll.
+       It shows system identity, live/offline status, and a UTC clock.
+       ==================================================================== -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__logo">⚡ ARES-E</span>
+      <span class="topbar__subtitle">Agentic Resilience & Evaluation System | DaScient, LLC</span>
+    </div>
+    <div class="topbar__status">
+      <span class="pulse">LIVE</span>
+      <span class="topbar__clock" id="topbar-clock">--:--:-- UTC</span>
+    </div>
+  </header>
+
+
+  <!-- ====================================================================
+       MAIN DASHBOARD CONTENT
+       ==================================================================== -->
+  <main class="dashboard">
+
+
+    <!-- ==================================================================
+         SECTION: KPI STRIP
+         ==================================================================
+         A horizontal row of key performance indicator cards. These provide
+         an at-a-glance overview of system health across all three modules.
+
+         EDUCATIONAL — KPI Design Best Practices:
+           1. Show the metric name, current value, and trend direction
+           2. Use color to encode status (green/amber/red)
+           3. Keep the number of KPIs manageable (8-12 max for a single row)
+           4. Use monospaced fonts for numbers (easier to scan/compare)
+         ================================================================== -->
+    <section class="kpi-strip" aria-label="Key Performance Indicators">
+
+      <!-- EWIS KPIs -->
+      <div class="kpi kpi--ewis">
+        <span class="kpi__label">⚡ PUE</span>
+        <span class="kpi__value" id="kpi-pue">--</span>
+        <span class="kpi__trend kpi__trend--flat">Target: &lt; 1.20</span>
+      </div>
+
+      <div class="kpi kpi--ewis">
+        <span class="kpi__label">⚡ Grid Stability</span>
+        <span class="kpi__value" id="kpi-grid">--</span>
+        <span class="kpi__trend kpi__trend--flat">Target: &gt; 90%</span>
+      </div>
+
+      <div class="kpi kpi--ewis">
+        <span class="kpi__label">⚡ GPU Utilization</span>
+        <span class="kpi__value" id="kpi-gpu">--</span>
+        <span class="kpi__trend kpi__trend--flat">AI Workload</span>
+      </div>
+
+      <div class="kpi kpi--ewis">
+        <span class="kpi__label">⚡ Renewable Mix</span>
+        <span class="kpi__value" id="kpi-renewable">--</span>
+        <span class="kpi__trend kpi__trend--flat">Target: &gt; 50%</span>
+      </div>
+
+      <!-- WOIK KPIs -->
+      <div class="kpi kpi--woik">
+        <span class="kpi__label">💧 Pressure</span>
+        <span class="kpi__value" id="kpi-pressure">--</span>
+        <span class="kpi__trend kpi__trend--flat">Target: 60-80 PSI</span>
+      </div>
+
+      <div class="kpi kpi--woik">
+        <span class="kpi__label">💧 Turbidity</span>
+        <span class="kpi__value" id="kpi-turbidity">--</span>
+        <span class="kpi__trend kpi__trend--flat">Limit: &lt; 1.0 NTU</span>
+      </div>
+
+      <div class="kpi kpi--woik">
+        <span class="kpi__label">💧 SCADA Uptime</span>
+        <span class="kpi__value" id="kpi-scada">--</span>
+        <span class="kpi__trend kpi__trend--flat">Target: &gt; 99.9%</span>
+      </div>
+
+      <!-- PHIAK KPIs -->
+      <div class="kpi kpi--phiak">
+        <span class="kpi__label">🏥 ED Occupancy</span>
+        <span class="kpi__value" id="kpi-ed">--</span>
+        <span class="kpi__trend kpi__trend--flat">Alert: &gt; 85%</span>
+      </div>
+
+      <div class="kpi kpi--phiak">
+        <span class="kpi__label">🏥 ICU Occupancy</span>
+        <span class="kpi__value" id="kpi-icu">--</span>
+        <span class="kpi__trend kpi__trend--flat">Alert: &gt; 80%</span>
+      </div>
+
+      <div class="kpi kpi--phiak">
+        <span class="kpi__label">🏥 ILI Signal</span>
+        <span class="kpi__value" id="kpi-ili">--</span>
+        <span class="kpi__trend kpi__trend--flat">EARS-C2 Threshold: 3.0</span>
+      </div>
+
+      <!-- Cross-Domain LOE Score -->
+      <div class="kpi kpi--loe">
+        <span class="kpi__label">📊 ARES-E Score</span>
+        <span class="kpi__value" id="kpi-loe-score">--</span>
+        <span class="kpi__trend kpi__trend--up">Grade: A-</span>
+      </div>
+
+      <!-- Surge Level -->
+      <div class="kpi">
+        <span class="kpi__label">🚨 Surge Level</span>
+        <span class="kpi__value"><span class="card__badge card__badge--ok" id="kpi-surge-badge">GREEN</span></span>
+        <span class="kpi__trend kpi__trend--flat">Protocol Status</span>
+      </div>
+
+    </section>
+
+
+    <!-- ==================================================================
+         SECTION: PRIMARY CHARTS + ALERT PANEL
+         ==================================================================
+         Three-column layout: two chart columns + alert feed on the right.
+         The alert panel is a live, scrollable feed of triggered alerts.
+         ================================================================== -->
+    <div class="section-header">
+      <span class="section-header__icon">📡</span>
+      <h2 class="section-header__title">Real-Time Telemetry</h2>
+      <span class="section-header__desc">Streaming at 0.5 Hz (2-second intervals)</span>
+    </div>
+
+    <div class="grid">
+
+      <!-- Column 1: EWIS Primary Chart -->
+      <div class="card card--ewis">
+        <div class="card__header">
+          <span class="card__title">⚡ EWIS — PUE &amp; Grid Stability</span>
+          <span class="card__badge card__badge--ok">NOMINAL</span>
+        </div>
+        <!-- EDUCATIONAL — Canvas Element:
+             Chart.js renders directly to an HTML <canvas>. The parent div
+             (.chart-wrap) controls sizing. Never set width/height on the
+             canvas directly when using Chart.js responsive mode. -->
+        <div class="chart-wrap">
+          <canvas id="chart-ewis-primary"></canvas>
+        </div>
+      </div>
+
+      <!-- Column 2: WOIK Primary Chart -->
+      <div class="card card--woik">
+        <div class="card__header">
+          <span class="card__title">💧 WOIK — Pressure &amp; Flow</span>
+          <span class="card__badge card__badge--ok">NOMINAL</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chart-woik-primary"></canvas>
+        </div>
+      </div>
+
+      <!-- Column 3: Alert Feed Panel -->
+      <div class="card card--alerts">
+        <div class="card__header">
+          <span class="card__title">🚨 Live Alert Feed</span>
+          <span class="card__badge card__badge--ok" id="alert-count">0</span>
+        </div>
+        <!-- EDUCATIONAL — Accessible Lists:
+             Using semantic <ul>/<li> elements helps screen readers
+             parse the alert list correctly. Each alert item has
+             ARIA-friendly structure for accessibility compliance. -->
+        <ul class="alert-list" id="alert-list" aria-live="polite">
+          <!-- Alert items will be dynamically inserted here by dashboard.js -->
+          <li class="alert-item alert-item--info">
+            <div class="alert-item__time">--:--:--</div>
+            <div>
+              <span class="alert-item__module">SYSTEM</span>
+              Dashboard initialized. Monitoring all modules.
+            </div>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+
+
+    <!-- ==================================================================
+         SECTION: MODULE DETAIL CHARTS (Row 2)
+         ==================================================================
+         Secondary charts for each module, shown in a three-column layout.
+         Each card includes gauges for additional metrics.
+         ================================================================== -->
+    <div class="module-row">
+
+      <!-- EWIS Detail: GPU & Energy/Token -->
+      <div class="card card--ewis">
+        <div class="card__header">
+          <span class="card__title">⚡ EWIS — GPU &amp; Energy Efficiency</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chart-ewis-secondary"></canvas>
+        </div>
+        <!-- Gauge indicators for additional EWIS metrics -->
+        <div class="mt-4">
+          <div class="gauge">
+            <span class="text-sm text-dim" style="min-width:100px">PUE Health</span>
+            <div class="gauge__bar"><div class="gauge__fill gauge__fill--ok" id="gauge-pue" style="width:15%"></div></div>
+            <span class="gauge__label" id="gauge-pue-label"></span>
+          </div>
+          <div class="gauge">
+            <span class="text-sm text-dim" style="min-width:100px">UPS Charge</span>
+            <div class="gauge__bar"><div class="gauge__fill gauge__fill--ok" id="gauge-ups" style="width:100%"></div></div>
+            <span class="gauge__label" id="gauge-ups-label"></span>
+          </div>
+          <div class="gauge">
+            <span class="text-sm text-dim" style="min-width:100px">Cooling Load</span>
+            <div class="gauge__bar"><div class="gauge__fill gauge__fill--ok" id="gauge-cooling" style="width:30%"></div></div>
+            <span class="gauge__label" id="gauge-cooling-label"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- WOIK Detail: Water Quality -->
+      <div class="card card--woik">
+        <div class="card__header">
+          <span class="card__title">💧 WOIK — Water Quality</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chart-woik-secondary"></canvas>
+        </div>
+        <div class="mt-4">
+          <div class="gauge">
+            <span class="text-sm text-dim" style="min-width:100px">Pressure</span>
+            <div class="gauge__bar"><div class="gauge__fill gauge__fill--ok" id="gauge-pressure" style="width:76%"></div></div>
+            <span class="gauge__label" id="gauge-pressure-label"></span>
+          </div>
+          <div class="gauge">
+            <span class="text-sm text-dim" style="min-width:100px">Tank Level</span>
+            <div class="gauge__bar"><div class="gauge__fill gauge__fill--ok" id="gauge-tank" style="width:72%"></div></div>
+            <span class="gauge__label" id="gauge-tank-label"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHIAK Detail: Syndromic Surveillance -->
+      <div class="card card--phiak">
+        <div class="card__header">
+          <span class="card__title">🏥 PHIAK — Syndromic Surveillance</span>
+          <span class="card__badge card__badge--warn">ELEVATED</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chart-phiak-secondary"></canvas>
+        </div>
+        <div class="mt-4">
+          <div class="gauge">
+            <span class="text-sm text-dim" style="min-width:100px">ED Capacity</span>
+            <div class="gauge__bar"><div class="gauge__fill gauge__fill--warn" id="gauge-ed" style="width:82%"></div></div>
+            <span class="gauge__label" id="gauge-ed-label"></span>
+          </div>
+          <div class="gauge">
+            <span class="text-sm text-dim" style="min-width:100px">ICU Capacity</span>
+            <div class="gauge__bar"><div class="gauge__fill gauge__fill--ok" id="gauge-icu" style="width:74%"></div></div>
+            <span class="gauge__label" id="gauge-icu-label"></span>
+          </div>
+          <div class="gauge">
+            <span class="text-sm text-dim" style="min-width:100px">Vent Avail.</span>
+            <div class="gauge__bar"><div class="gauge__fill gauge__fill--ok" id="gauge-vent" style="width:31%"></div></div>
+            <span class="gauge__label" id="gauge-vent-label"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ==================================================================
+         SECTION: PHIAK — ED & ICU Occupancy Chart
+         ==================================================================
+         Full-width capacity chart for the health infrastructure module.
+         ================================================================== -->
+    <div class="section-header">
+      <span class="section-header__icon">🏥</span>
+      <h2 class="section-header__title">PHIAK — Capacity Monitoring</h2>
+      <span class="section-header__desc">Privacy-Aware | Zero PII/PHI | Aggregated Data Only</span>
+    </div>
+
+    <div class="grid-full">
+      <div class="card card--phiak">
+        <div class="card__header">
+          <span class="card__title">ED &amp; ICU Occupancy Trends</span>
+          <span class="card__badge card__badge--info">HIPAA SAFE HARBOR</span>
+        </div>
+        <!-- EDUCATIONAL — Privacy Notice:
+             PHIAK metrics are always population-level aggregates.
+             No individual patient data is ever generated or displayed.
+             This aligns with HIPAA Safe Harbor (45 CFR §164.514(b)). -->
+        <div class="chart-wrap chart-wrap--tall">
+          <canvas id="chart-phiak-primary"></canvas>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ==================================================================
+         SECTION: LOE SCORING & FORECAST
+         ==================================================================
+         Two-column layout:
+           Left:  LOE radar chart + scorecard
+           Right: Forecast trend chart + projection table
+         ================================================================== -->
+    <div class="section-header">
+      <span class="section-header__icon">📊</span>
+      <h2 class="section-header__title">LOE Benchmark &amp; Forecasting</h2>
+      <span class="section-header__desc">Lines of Effort 1 &amp; 2 — Cross-Domain Assessment</span>
+    </div>
+
+    <div class="grid-full">
+
+      <!-- LOE Radar + Scorecard -->
+      <div class="card card--loe">
+        <div class="card__header">
+          <span class="card__title">LOE Composite Benchmark</span>
+          <span class="card__badge card__badge--ok">v2.2.0 RUN</span>
+        </div>
+        <div class="chart-wrap chart-wrap--tall">
+          <canvas id="chart-loe-radar"></canvas>
+        </div>
+        <!-- EDUCATIONAL — LOE Metrics Explained:
+             LOE 1 (Autonomous Monitoring): MTTD, FPR, Actionability, Cross-Domain
+             LOE 2 (Human-Machine Teaming): Decision Latency, Acceptance, Escalation
+             These map to the ARES-E evaluation framework's core KPIs. -->
+        <div class="scorecard mt-4">
+          <div class="scorecard__metric">
+            <span class="scorecard__metric-label">LOE 1 — MTTD Score</span>
+            <span class="scorecard__metric-value">91.2</span>
+          </div>
+          <div class="scorecard__metric">
+            <span class="scorecard__metric-label">LOE 1 — False Positive Rate</span>
+            <span class="scorecard__metric-value">3.4%</span>
+          </div>
+          <div class="scorecard__metric">
+            <span class="scorecard__metric-label">LOE 2 — Latency Reduction</span>
+            <span class="scorecard__metric-value">43.8%</span>
+          </div>
+          <div class="scorecard__metric">
+            <span class="scorecard__metric-label">LOE 2 — Escalation Accuracy</span>
+            <span class="scorecard__metric-value">92.6%</span>
+          </div>
+        </div>
+        <div class="composite-score">
+          <div class="composite-score__value">89.4</div>
+          <div class="composite-score__label">ARES-E Composite Score</div>
+          <span class="composite-score__grade">A- · PROCEED TO PILOT</span>
+        </div>
+      </div>
+
+      <!-- Forecast Chart + Table -->
+      <div class="card" style="border-top: 3px solid #facc15;">
+        <div class="card__header">
+          <span class="card__title">📈 Score Forecast (12-Week Projection)</span>
+          <span class="card__badge card__badge--info">LINEAR TREND + 95% CI</span>
+        </div>
+        <!-- EDUCATIONAL — Forecasting Methodology:
+             This chart uses Ordinary Least Squares (OLS) linear regression
+             fitted to the last 24 weeks of composite scores. The shaded
+             band represents a 95% confidence interval that widens as we
+             project further into the future (uncertainty compounds).
+             See js/forecasting.js for the full implementation. -->
+        <div class="chart-wrap chart-wrap--tall">
+          <canvas id="chart-forecast"></canvas>
+        </div>
+
+        <!-- Forecast Summary Table -->
+        <div class="mt-4">
+          <h3 class="card__title mb-2">Module Metric Forecasts</h3>
+          <table class="forecast-table">
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Metric</th>
+                <th>Current</th>
+                <th>+24h</th>
+                <th>+7d</th>
+                <th>Trend</th>
+              </tr>
+            </thead>
+            <tbody id="forecast-tbody">
+              <!-- Populated by dashboard.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ==================================================================
+         SECTION: SIMULATION RESULTS
+         ==================================================================
+         A summary table of the latest DDIL simulation runs.
+         ================================================================== -->
+    <div class="section-header">
+      <span class="section-header__icon">🧪</span>
+      <h2 class="section-header__title">DDIL Simulation Results</h2>
+      <span class="section-header__desc">Denied, Degraded, Intermittent, or Limited — Resilience Testing</span>
+    </div>
+
+    <div class="grid-full">
+      <div class="card">
+        <div class="card__header">
+          <span class="card__title">Latest Simulation Runs</span>
+          <span class="card__badge card__badge--ok">7/7 PASSED</span>
+        </div>
+        <!-- EDUCATIONAL — DDIL Testing:
+             DDIL stands for Denied, Degraded, Intermittent, or Limited.
+             It's a DoD term for austere communications environments.
+             ARES-E tests AI agent performance under these conditions
+             to ensure operational reliability in contested environments. -->
+        <table class="sim-table">
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>Module</th>
+              <th>Score</th>
+              <th>Status</th>
+              <th>Key Metric</th>
+            </tr>
+          </thead>
+          <tbody id="sim-tbody">
+            <!-- Populated by dashboard.js -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <!-- ==================================================================
+         SECTION: ARCHITECTURE REFERENCE
+         ==================================================================
+         A quick reference card showing the ARES-E system architecture
+         and data flow, matching the worker.js VFS content.
+         ================================================================== -->
+    <div class="section-header">
+      <span class="section-header__icon">🏗️</span>
+      <h2 class="section-header__title">System Architecture</h2>
+      <span class="section-header__desc">ARES-E Deployment Stack & Data Flow</span>
+    </div>
+
+    <div class="grid-full">
+      <div class="card" style="border-top: 3px solid var(--accent-cyan);">
+        <div class="card__header">
+          <span class="card__title">Component Stack</span>
+        </div>
+        <!-- EDUCATIONAL — ASCII Architecture Diagrams:
+             While tools like Mermaid and D3.js exist for dynamic diagrams,
+             ASCII art remains popular in technical documentation because
+             it's universally viewable, version-controllable, and requires
+             zero external dependencies. -->
+        <pre class="text-mono text-sm" style="color: var(--accent-cyan); line-height: 1.8; overflow-x: auto;">
+  ┌──────────────────────────────────────────────────┐
+  │       ARES-E Evaluation Orchestrator             │
+  │       (Dashboard Controller — dashboard.js)       │
+  ├─────────────┬─────────────────┬──────────────────┤
+  │    EWIS     │      WOIK       │     PHIAK        │
+  │   Energy/   │     Water/      │    Public        │
+  │   Weather   │    Hydraulic    │    Health        │
+  │             │                 │  (Privacy-Aware)  │
+  ├─────────────┴─────────────────┴──────────────────┤
+  │   Synthetic Data Engine (synthetic-data.js)       │
+  │   └─ Diurnal cycles, noise, anomaly injection    │
+  ├──────────────────────────────────────────────────┤
+  │   Alert Engine (alerts.js) + Forecast (forecast)  │
+  │   └─ 18 threshold rules, EMA/OLS forecasting     │
+  ├──────────────────────────────────────────────────┤
+  │   Chart.js Visualization Layer (charts.js)        │
+  │   └─ 8 real-time charts, dual-axis, radar        │
+  ├──────────────────────────────────────────────────┤
+  │   Privacy Guard — Zero PII/PHI by Architecture    │
+  ├──────────────────────────────────────────────────┤
+  │   Edge Runtime (GitHub Pages / Cloudflare Workers) │
+  └──────────────────────────────────────────────────┘
+
+  Data Flow:
+  Synthetic Telemetry → Normalization → Anomaly Injection
+  → Alert Evaluation → Chart Rendering → KPI Updates
+  → Forecast Projection → Operator Decision Support
+        </pre>
+      </div>
+
+      <!-- Data Handling Notice -->
+      <div class="card" style="border-top: 3px solid var(--status-warn);">
+        <div class="card__header">
+          <span class="card__title">⚠️ Data Handling Notice</span>
+        </div>
+        <div class="text-sm" style="line-height: 1.8;">
+          <p class="mb-4" style="color: var(--status-warn); font-weight: 600;">
+            This dashboard uses 100% synthetic data for demonstration purposes.
+          </p>
+          <p class="mb-2">
+            <strong class="text-info">Data Sources:</strong> All telemetry is generated client-side by the
+            Synthetic Data Engine using seedable pseudo-random number generators (Mulberry32 PRNG)
+            with diurnal cycles, Gaussian noise, and probabilistic anomaly injection.
+          </p>
+          <p class="mb-2">
+            <strong class="text-info">Privacy:</strong> PHIAK health metrics are always population-level
+            aggregates. Zero individual patient data (PII/PHI) is generated, stored, or transmitted.
+            Compliant with HIPAA Safe Harbor (45 CFR §164.514(b)).
+          </p>
+          <p class="mb-2">
+            <strong class="text-info">Security:</strong> No data leaves the browser. All computation
+            runs client-side. No external API calls, no cookies, no tracking.
+          </p>
+          <p>
+            <strong class="text-info">Source Code:</strong>
+            <a href="https://github.com/DaScient/ARES-E" target="_blank" rel="noopener noreferrer">
+              github.com/DaScient/ARES-E
+            </a>
+            — MIT Licensed. Fully open-source and auditable.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+
+  <!-- ====================================================================
+       FOOTER
+       ==================================================================== -->
+  <footer class="footer">
+    <p>
+      <strong>ARES-E</strong> v2.2.0 — Agentic Resilience &amp; Evaluation System for Essential-Infrastructure
+    </p>
+    <p>
+      © 2026 <a href="https://github.com/DaScient" target="_blank" rel="noopener noreferrer">DaScient, LLC</a>
+      · Centennial, CO
+      · <a href="https://github.com/DaScient/ARES-E" target="_blank" rel="noopener noreferrer">GitHub</a>
+      · MIT License
+    </p>
+    <p class="mt-2" style="font-size: 0.65rem;">
+      Dashboard powered by synthetic telemetry. No real infrastructure data is used.
+      PHIAK module: Zero PII/PHI by architecture. All metrics are population-level aggregates.
+    </p>
+  </footer>
+
+
+  <!-- ====================================================================
+       JAVASCRIPT MODULES
+       ====================================================================
+       EDUCATIONAL — Script Loading Order:
+       Scripts are loaded in dependency order. `defer` isn't used here
+       because we need the modules to register on `window` before
+       dashboard.js (which depends on them) executes.
+
+       Load order:
+         1. synthetic-data.js — Data generation (no dependencies)
+         2. charts.js         — Chart management (depends on Chart.js CDN)
+         3. alerts.js         — Alert engine (no dependencies)
+         4. forecasting.js    — Forecast engine (no dependencies)
+         5. dashboard.js      — Controller (depends on all above)
+       ==================================================================== -->
+  <script src="js/synthetic-data.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/alerts.js"></script>
+  <script src="js/forecasting.js"></script>
+  <script src="js/dashboard.js"></script>
+
+</body>
+</html>
