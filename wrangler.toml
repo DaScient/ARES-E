@@ -1,0 +1,12 @@
+name = "ares-e"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Import CSS and client-side JS as text modules so the Worker can serve them
+[[rules]]
+type = "Text"
+globs = ["style.css"]
+
+[[rules]]
+type = "Text"
+globs = ["worker-terminal.js"]
