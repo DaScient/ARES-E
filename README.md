@@ -3,7 +3,7 @@
 [![GitHub Pages](https://img.shields.io/badge/demo-GitHub%20Pages-blue?logo=github)](https://dascient.github.io/ARES-E/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **DaScient, LLC** — Centennial, CO | Version 2.2.0
+> **DaScient, LLC** — DaScient Intelligence, Inc. | Version 2.2.0
 
 ## Overview
 
