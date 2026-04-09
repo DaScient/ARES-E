@@ -145,5 +145,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-**DaScient, LLC** — *Systematically addressing deep tech issues in critical infrastructure*
+**[DaScient, LLC](https://dascient.com)** — *Systematically addressing deep tech issues in critical infrastructure*
+
 [GitHub](https://github.com/DaScient) · [ARES-E@dascient.com](mailto:ARES-E@dascient.com)
